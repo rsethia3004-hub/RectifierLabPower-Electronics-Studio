@@ -1,0 +1,114 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>RectifierLab – Power Electronics Studio</title><style>
+:root{--bg:#050a18;--pn:#0b1428;--bd:#26396a;--tx:#dbe6ff;--mu:#8093b8;--ac:#0ea5e9;--gn:#10d98a;--am:#fbbf24;--pu:#a78bfa;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root[data-theme=light]{--bg:#eef2fa;--pn:#fff;--bd:#c3d0ea;--tx:#101a33;--mu:#55658a;--gn:#079a62;--am:#b87a00;--pu:#6d4fd6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:13px/1.4 system-ui,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--bd)}
+h1{font-size:19px;margin:0}h1 small{color:var(--ac);font:11px monospace;margin-left:8px}
+button{background:var(--pn);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit}
+button:focus-visible,input:focus-visible{outline:2px solid var(--ac)}button.on{background:var(--ac);border-color:var(--ac);color:#fff}button.run{background:#0a8f5a;border-color:#0a8f5a;color:#fff}
+main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:12px;padding:12px}@media(max-width:900px){main{grid-template-columns:1fr}}
+.p{background:var(--pn);border:1px solid var(--bd);border-radius:14px;padding:12px;min-width:0}.p h3{margin:0 0 8px;font-size:14px}.p h3 small{color:var(--gn);font:12px monospace;margin-left:6px}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:5px 0}.row label{color:var(--mu);min-width:92px}input[type=range]{flex:1;min-width:90px;accent-color:var(--ac)}.row b{font:12px monospace;min-width:52px;text-align:right}
+.wide{grid-column:1/-1}.g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.c{background:var(--pn);border:1px solid var(--bd);border-radius:12px;padding:10px}.c span{color:var(--mu);font-size:12px}.c b{display:block;font:600 21px monospace;margin:2px 0}.c i{font-style:normal;font-size:11px;color:var(--mu)}
+svg text{font:11px monospace;fill:var(--tx)}canvas{width:100%;display:block}.dev{cursor:pointer}
+dialog{background:var(--pn);color:var(--tx);border:1px solid var(--bd);border-radius:14px;max-width:660px;width:92%}dialog p{margin:6px 0}.pc{display:block;width:100%;text-align:left;margin:6px 0}.pc span{color:var(--mu);font-size:12px}code{color:var(--gn)}
+</style></head><body>
+<header><div><h1>RectifierLab<small>Power Electronics Studio</small></h1><div style="color:var(--mu);font-size:12px;margin-top:2px">Rishabh Sethia · 24EE10082</div></div><div class="row"><button class="run" id="run" data-a="run">▶ Run</button><button data-a="bk">⏮</button><button data-a="nx">⏭</button><button data-a="rs">↺</button><span style="color:var(--mu)">Speed</span><button data-s="spd:0.1">0.1x</button><button data-s="spd:0.2">0.2x</button><button data-s="spd:0.5">0.5x</button><button data-s="spd:1">1x</button><button data-s="spd:2">2x</button><button data-a="pre">Presets</button><button data-a="th">Theory</button><button data-a="mode">◐</button></div></header>
+<main>
+<section class="p"><h3>Circuit schematic<small id="loop"></small></h3><div style="color:var(--mu);font-size:12px">Click a switch to toggle Diode (D) ↔ Thyristor (T).</div><svg id="sv" viewBox="0 0 780 420" width="100%"></svg></section>
+<section class="p"><div class="row"><button data-s="tab:w">Waveforms</button><button data-s="tab:h">Harmonics (FFT)</button></div><canvas id="cv"></canvas><div class="row"><label>Angle ωt</label><input type="range" id="thr" min="0" max="360" step=".5"><b id="thv"></b></div></section>
+<div class="cards wide" id="cards"></div>
+<div class="g3 wide"><div class="p"><h3>Converter topology</h3><div class="row"><button data-s="ph:1">Single-phase</button><button data-s="ph:3">Three-phase</button></div><div class="row"><button data-s="full:1">Full-bridge</button><button data-s="full:0">Half-wave</button></div><div class="row"><label>Switches</label><button data-a="all">All SCRs</button><button data-a="dio">All diodes</button><button data-a="semi">Semi-conv</button></div><div class="row"><label>Freewheel D</label><button data-s="fw:0">None</button><button data-s="fw:1">Connected</button></div></div>
+<div class="p"><h3>Firing angle α</h3><div id="sa"></div><div class="row" id="qa"></div></div>
+<div class="p"><h3>Load and source</h3><div class="row"><button data-s="load:R">R</button><button data-s="load:RL">RL</button><button data-s="load:RLE">RLE</button></div><div id="sl"></div></div></div>
+<div class="p wide" id="idl"></div>
+</main>
+<dialog id="dp"><h3>Standard presets</h3><div id="pl"></div><button onclick="this.closest('dialog').close()">Close</button></dialog>
+<dialog id="dt"><h3>Theory</h3><p>Average output, Vm = peak phase voltage, continuous current:</p><p>1φ full-controlled: <code>2Vm·cosα/π</code> · 1φ semi: <code>Vm(1+cosα)/π</code></p><p>3φ full-controlled: <code>3√3·Vm·cosα/π</code> · 3φ semi: <code>3√3·Vm(1+cosα)/2π</code></p><p>With α &gt; 90° and a back-EMF or very inductive load, the converter inverts (mean Vo &lt; 0). A freewheeling diode clamps Vo at zero and lets the load current decay without negative voltage.</p><p>Engine: ideal switches, exact RL(E) discretisation, 12 warm-up cycles, then one steady-state cycle at 720 points. Thyristors latch while current flows and commute instantly (no source inductance).</p><button onclick="this.closest('dialog').close()">Close</button></dialog>
+<script>
+const $=s=>document.querySelector(s),D=Math.PI/180,rt=document.documentElement,TP=2*Math.PI;
+const S={ph:1,full:1,load:'RL',R:20,L:45,E:100,V:230,a:45,fw:0,th:0,run:0,spd:.1,tab:'w',ty:[1,1,1,1,1,1]};
+let M={},off=0;const CL=['#f43f5e','#38bdf8','#fbbf24'];
+const cfg=()=>{const p=S.ph==3,h=!S.full;return{top:p?[0,1,2]:h?[0]:[0,1],bot:h?[]:p?[3,4,5]:[3,4]}};
+const NM=()=>S.ph==3?['1','3','5','4','6','2']:['1','3','','4','2'];
+const nm=k=>(S.ty[k]?'T':'D')+NM()[k];
+const vph=t=>{const m=S.V*Math.SQRT2;return S.ph==3?[m*Math.sin(t),m*Math.sin(t-2.0944),m*Math.sin(t+2.0944)]:[m*Math.sin(t),0,0]};
+const setTy=m=>S.ty=[0,1,2,3,4,5].map(k=>m=='all'?1:m=='dio'?0:+(k<3));
+function sim(){
+const N=720,K=3,h=TP/(N*K),dt=h/314.159,R=S.R,E=S.load=='RLE'?S.E:0,L=S.load=='R'?0:S.L*1e-3,p3=S.ph==3,hw=!S.full,{top,bot}=cfg(),nat=p3?[30,150,270,210,330,90]:[0,180,0,180,0],gw=p3?2.2:3.1416;
+const g=(k,t)=>{if(!S.ty[k])return 1;let d=(t-(nat[k]+S.a)*D)%TP;if(d<0)d+=TP;return d<gw};
+let i=0,on=[0,0,0,0,0,0];const o={vo:[],i:[],ia:[],c:[],bt:[],bb:[]};
+for(let n=0;n<13*N*K;n++){const t=n*h,v=vph(t);
+const pk=(grp,s)=>{let b=-1,bv=0;for(const k of grp)if((on[k]&&i>0)||g(k,t)){const x=v[k%3];if(b<0||s*x>s*bv){b=k;bv=x}}return[b,bv]};
+const[bt,vt]=pk(top,1),[bb,vb]=hw?[-2,0]:pk(bot,-1),ok=bt>=0&&bb!=-1,vbr=vt-vb;let c=0;
+if(ok&&(i>0?(S.fw?vbr>0:1):vbr>E+1e-6))c=1;else if(S.fw&&i>0)c=2;
+if(c){const inf=((c==1?vbr:0)-E)/R;i=L<1e-5?Math.max(0,inf):inf+(i-inf)*Math.exp(-R*dt/L);if(i<=1e-9){i=0;c=0}}else i=0;
+on=[0,0,0,0,0,0];if(c==1){on[bt]=1;if(bb>=0)on[bb]=1}
+if(n>=12*N*K&&n%K==0){o.vo.push(c==1?vbr:c==2?0:E);o.i.push(i);o.ia.push(i*(on[0]-on[3]));o.c.push(c);o.bt.push(bt);o.bb.push(bb)}}
+return o}
+function met(o){const N=o.vo.length,m=a=>a.reduce((s,x)=>s+x,0)/N,r=a=>Math.sqrt(m(a.map(x=>x*x)));
+const Vd=m(o.vo),Vr=r(o.vo),Id=m(o.i),Ir=r(o.i),Is=r(o.ia),P=S.R*Ir*Ir+(S.load=='RLE'?S.E:0)*Id,Sin=(S.ph==3?3:1)*S.V*Is,H=[];
+for(let n=1;n<=25;n++){let a=0,b=0;o.ia.forEach((x,j)=>{const t=TP*j*n/N;a+=x*Math.cos(t);b+=x*Math.sin(t)});H.push([2*a/N,2*b/N])}
+const A1=Math.hypot(...H[0])||1e-9,I1=A1/Math.SQRT2;
+return{Vd,Vr,Id,Ir,Is,P,Sin,PF:Sin>0?P/Sin:0,cp:H[0][1]/A1,thd:Math.sqrt(Math.max(0,Is*Is-I1*I1))/I1*100,h:H.map(x=>Math.hypot(...x)/A1*100),dcm:Math.min(...o.i)<=1e-6,rf:Math.abs(Vd)>1?Math.sqrt(Math.max(0,(Vr/Vd)**2-1)).toFixed(3):'—'}}
+function ideal(){const p3=S.ph==3,m=S.V*Math.SQRT2,{top,bot}=cfg(),ty=S.ty,ts=top.every(k=>ty[k]),td=top.every(k=>!ty[k]),bs=bot.every(k=>ty[k]),bd=bot.every(k=>!ty[k]),c0=td?1:Math.cos(S.a*D),k3=3*Math.sqrt(3)/Math.PI;let t='—',v=null;
+if(S.full){if((ts&&bs)||(td&&bd)){t=p3?'Vdc = (3√3·Vm/π)·cos α':'Vdc = (2·Vm/π)·cos α';v=(p3?k3:2/Math.PI)*m*c0}else if(ts&&bd){t=p3?'Vdc = (3√3·Vm/2π)(1 + cos α)':'Vdc = (Vm/π)(1 + cos α)';v=(p3?k3/2:1/Math.PI)*m*(1+c0)}}
+else if(ts||td){t=p3?'Vdc = (3√3·Vm/2π)·cos α':'Vdc = (Vm/2π)(1 + cos α)';v=p3?k3/2*m*c0:m/2/Math.PI*(1+c0)}
+return`<h3>${S.ph}φ ${S.full?'full-bridge':'half-wave'}: analytical DC voltage</h3><div class="row"><code style="font-size:15px">${t}</code><b style="margin-left:auto;font-size:17px;color:var(--gn)">${v==null?'mixed switches – no closed form':v.toFixed(1)+' V'}</b></div><div style="color:var(--mu);font-size:12px">Ideal value for continuous conduction without back-EMF; compare with the simulated average above.</div>`}
+const f=(x,d)=>x.toFixed(d);
+function cards(){const c=[['Avg DC voltage',f(M.Vd,1)+' V','Vrms = '+f(M.Vr,1)+' V'],['Avg DC current',f(M.Id,2)+' A','Irms = '+f(M.Ir,2)+' A'],['Output power',f(M.P,0)+' W','S_in = '+f(M.Sin,0)+' VA'],['Power factor',f(M.PF,3),'cos φ1 = '+f(M.cp,3)],['Ripple factor',M.rf,'Form factor = '+f(M.Vr/(Math.abs(M.Vd)||1),2)],['Source THD_i',f(M.thd,1)+' %',M.dcm?'DCM (discontinuous)':'CCM (continuous)']];
+$('#cards').innerHTML=c.map(x=>`<div class="c"><span>${x[0]}</span><b>${x[1]}</b><i>${x[2]}</i></div>`).join('');$('#idl').innerHTML=ideal()}
+const sl=(k,l,a,b,u)=>`<div class="row"><label>${l}</label><input type="range" data-k="${k}" data-u="${u}" min="${a}" max="${b}" step="1"><b id="o${k}"></b></div>`;
+$('#sa').innerHTML=sl('a','Angle α',0,150,'°');$('#qa').innerHTML=[0,30,45,60,90,120,150].map(a=>`<button data-s="a:${a}">${a}°</button>`).join('');
+$('#sl').innerHTML=sl('R','Resistance',1,100,' Ω')+sl('L','Inductance',1,200,' mH')+sl('E','Back-EMF E',0,300,' V')+sl('V','Source RMS',100,400,' V');
+function sync(){document.querySelectorAll('[data-s]').forEach(b=>{const[k,v]=b.dataset.s.split(':');b.classList.toggle('on',String(S[k])==v)});
+document.querySelectorAll('input[data-k]').forEach(i=>{const k=i.dataset.k;i.value=S[k];$('#o'+k).textContent=S[k]+i.dataset.u;i.disabled=(k=='L'&&S.load=='R')||(k=='E'&&S.load!='RLE')})}
+function upd(){M.o=sim();Object.assign(M,met(M.o));sync();cards()}
+function svg(){const p3=S.ph==3,n=Math.floor(S.th/360*720)%720,o=M.o,c=o.c[n],bt=o.bt[n],bb=o.bb[n],{top,bot}=cfg(),on=k=>c==1&&(k==bt||k==bb);
+const xs=[290,390,490],ys=p3?[130,225,320]:[150,300],ym=p3?[205,225,245]:[215,235],LX=670,TY=70,BY=380,fx=p3?580:500,nl=p3?3:2,fon=c==2;
+const W=(p,a,col)=>`<polyline points="${p}" fill="none" stroke="${a?col||'var(--gn)':'var(--bd)'}" stroke-width="${a?3:2}"${a?` stroke-dasharray="7 6" stroke-dashoffset="${-off}"`:''}/>`;
+let s=W(`${xs[0]},${TY} ${LX},${TY}`,0)+W(`${xs[0]},${BY} ${LX},${BY}`,0);
+const nl2=S.full?'':W(`${xs[0]},${BY} 40,${BY} 40,${p3?225:300} ${p3?58:72},${p3?225:300}`,c==1,'var(--gn)');s+=nl2;
+if(c==1){s+=W(`${xs[bt%3]},${TY} ${LX},${TY}`,1)+(bb>=0?W(`${LX},${BY} ${xs[bb%3]},${BY}`,1):W(`${LX},${BY} ${xs[0]},${BY}`,1))}
+if(fon)s+=W(`${fx},${TY} ${LX},${TY}`,1,'var(--am)')+W(`${LX},${BY} ${fx},${BY}`,1,'var(--am)');
+s+=W(`${LX},${TY} ${LX},170`,c>0,fon?'var(--am)':0)+W(`${LX},280 ${LX},${BY}`,c>0,fon?'var(--am)':0);
+for(let k=0;k<nl;k++){const x=xs[k],a=on(k),b=on(k+3),act=a||b,sx=90;
+s+=W(`${x},${TY} ${x},${BY}`,0)+(a?W(`${x},${TY} ${x},${ym[k]}`,1):'')+(b?W(`${x},${ym[k]} ${x},${BY}`,1):'');
+s+=W(`${sx+18},${ys[k]} ${170+20*k},${ys[k]} ${170+20*k},${ym[k]} ${x},${ym[k]}`,act,CL[k]);
+s+=`<circle cx="${sx}" cy="${ys[k]}" r="18" fill="var(--pn)" stroke="${CL[k]}" stroke-width="${act?3:1.5}"/><text x="${sx}" y="${ys[k]+4}" text-anchor="middle">${p3?'ABC'[k]:k?'N':'A'}</text>`}
+if(p3)s+=`<text x="40" y="229">N</text>`;
+const dv=(k,x,y)=>{const u=top.includes(k)||bot.includes(k),q=on(k);return`<g class="dev" data-k="${k}" opacity="${u?1:.25}"><rect x="${x-28}" y="${y-34}" width="56" height="68" rx="9" fill="${q?'rgba(16,217,138,.22)':'none'}" stroke="${q?'var(--gn)':'var(--bd)'}" stroke-width="${q?2.5:1.5}"/><polygon points="${x-12},${y+10} ${x+12},${y+10} ${x},${y-10}" fill="none" stroke="var(--mu)" stroke-width="2"/><line x1="${x-12}" y1="${y-10}" x2="${x+12}" y2="${y-10}" stroke="var(--mu)" stroke-width="2"/>${S.ty[k]?`<line x1="${x-28}" y1="${y+4}" x2="${x-6}" y2="${y+1}" stroke="var(--am)" stroke-width="1.5"/><text x="${x-27}" y="${y-2}" style="font-size:9px">G</text>`:''}<text x="${x-22}" y="${y-22}">${nm(k)}</text><text x="${x+8}" y="${y+28}" style="fill:${q?'var(--gn)':'var(--mu)'}">${q?'ON':'OFF'}</text></g>`};
+for(let k=0;k<nl;k++)s+=dv(k,xs[k],150)+dv(k+3,xs[k],300);
+s+=`<g><rect x="${LX-48}" y="170" width="96" height="110" rx="10" fill="var(--pn)" stroke="var(--ac)" stroke-width="2"/><text x="${LX}" y="192" text-anchor="middle">${S.load} load</text><text x="${LX}" y="212" text-anchor="middle">R = ${S.R} Ω</text>${S.load!='R'?`<text x="${LX}" y="230" text-anchor="middle">L = ${S.L} mH</text>`:''}${S.load=='RLE'?`<text x="${LX}" y="248" text-anchor="middle">E = ${S.E} V</text>`:''}<text x="${LX}" y="270" text-anchor="middle" style="fill:var(--ac)">i = ${f(o.i[n],2)} A</text></g>`;
+s+=`<text x="${LX-120}" y="${TY-8}" style="fill:var(--am)">+ Vo = ${f(o.vo[n],1)} V</text><text x="${LX-60}" y="${BY+20}">− Vo (GND)</text>`;
+s+=W(`${fx},${TY} ${fx},${BY}`,fon,'var(--am)')+`<g opacity="${S.fw?1:.3}"><rect x="${fx-24}" y="195" width="48" height="60" rx="8" fill="var(--pn)" stroke="${fon?'var(--am)':'var(--bd)'}" stroke-width="2"/><polygon points="${fx-11},${240} ${fx+11},240 ${fx},218" fill="none" stroke="var(--mu)" stroke-width="2"/><line x1="${fx-11}" y1="218" x2="${fx+11}" y2="218" stroke="var(--mu)" stroke-width="2"/><text x="${fx-18}" y="208">D_FW</text></g>`;
+$('#loop').textContent=c==1?nm(bt)+' + '+(bb>=0?nm(bb):'N'):c==2?'D_FW (freewheeling)':'no conduction';return s}
+function draw(){const cv=$('#cv'),W=cv.clientWidth||600,H=370,d=devicePixelRatio||1;if(cv.width!=Math.round(W*d)){cv.width=Math.round(W*d);cv.height=H*d;cv.style.height=H+'px'}
+const g=cv.getContext('2d'),cs=getComputedStyle(rt),C=n=>cs.getPropertyValue(n).trim(),o=M.o,N=o.vo.length,X0=46,X1=W-10,X=j=>X0+(X1-X0)*j/N;
+g.setTransform(d,0,0,d,0,0);g.clearRect(0,0,W,H);g.font='10px monospace';g.lineJoin='round';
+const box=(a,b,m,l)=>{g.strokeStyle=C('--bd');g.lineWidth=1;g.setLineDash([]);g.strokeRect(X0,a,X1-X0,b-a);g.fillStyle=C('--mu');g.textAlign='right';g.fillText(Math.round(m),X0-4,a+9);g.fillText('0',X0-4,(a+b)/2+3);g.fillText(Math.round(-m),X0-4,b);g.textAlign='left';g.fillText(l,X0+6,a+13);g.setLineDash([2,4]);g.beginPath();g.moveTo(X0,(a+b)/2);g.lineTo(X1,(a+b)/2);g.stroke();g.setLineDash([])};
+const ln=(arr,m,a,b,col,w,dash)=>{g.strokeStyle=col;g.lineWidth=w;g.setLineDash(dash||[]);g.beginPath();arr.forEach((v,j)=>{const y=b-(v/m+1)/2*(b-a);j?g.lineTo(X(j),y):g.moveTo(X(j),y)});g.stroke();g.setLineDash([])};
+if(S.tab=='h'){g.fillStyle=C('--tx');g.fillText('Source current harmonics, % of fundamental',X0,16);const bw=(X1-X0)/25;M.h.forEach((v,j)=>{const hh=Math.min(v,100)/100*(H-70);g.fillStyle=C('--ac');g.fillRect(X0+j*bw+2,H-30-hh,bw-4,hh);g.fillStyle=C('--mu');g.fillText(j+1,X0+j*bw+3,H-16);if(v>4)g.fillText(Math.round(v),X0+j*bw+2,H-34-hh)});return}
+const p3=S.ph==3,vm=S.V*Math.SQRT2*(p3?1.8:1.1),im=Math.max(1,...o.i.map(Math.abs),...o.ia.map(Math.abs))*1.15,pv=[[],[],[]];
+for(let j=0;j<N;j++){const v=vph(j*TP/N);if(p3){pv[0].push(v[0]-v[1]);pv[1].push(v[1]-v[2]);pv[2].push(v[2]-v[0])}else pv[0].push(v[0])}
+box(8,190,vm,p3?'v_LL (dashed) and v_o [V]':'v_s (dashed) and v_o [V]');pv.slice(0,p3?3:1).forEach((a,k)=>ln(a,vm,8,190,CL[k],1,[4,4]));ln(o.vo,vm,8,190,C('--gn'),2.5);ln(o.vo.map(()=>M.Vd),vm,8,190,C('--pu'),1.5,[6,4]);
+box(200,320,im,'i_o (amber), i_a line current (violet) [A]');ln(o.i,im,200,320,C('--am'),2);ln(o.ia,im,200,320,C('--pu'),1.5);
+const lab=j=>{const c=o.c[j];return c==1?nm(o.bt[j])+(o.bb[j]>=0?' '+nm(o.bb[j]):''):c==2?'D_FW':'OFF'};let st=0;
+for(let j=1;j<=N;j++)if(j==N||lab(j)!=lab(st)){const l=lab(st);g.fillStyle=l=='OFF'?'rgba(120,130,150,.25)':`hsla(${(l.charCodeAt(1)*47+l.length*23)%360},65%,50%,.4)`;g.fillRect(X(st),328,X(j)-X(st),22);g.fillStyle=C('--tx');g.fillText(l,X(st)+3,343);st=j}
+g.fillStyle=C('--mu');[0,90,180,270,360].forEach(a=>{g.textAlign=a?a==360?'right':'center':'left';g.fillText(a+'°',X0+(X1-X0)*a/360,364)});g.textAlign='left';
+const cx=X0+(X1-X0)*S.th/360;g.strokeStyle=C('--ac');g.lineWidth=1.5;g.setLineDash([4,3]);g.beginPath();g.moveTo(cx,8);g.lineTo(cx,350);g.stroke();g.setLineDash([])}
+function render(){$('#sv').innerHTML=svg();draw();$('#thr').value=S.th;$('#thv').textContent=f(S.th,1)+'°'}
+let last=0;function tick(t){const dt=Math.min(.1,(t-last)/1000);last=t;if(S.run){S.th=(S.th+360*S.spd*dt)%360;off=(off+60*dt)%13}render();requestAnimationFrame(tick)}
+const PR=[['1φ diode bridge (RL)','Full-wave 4-diode bridge with inductive load',{ph:1,full:1,load:'RL',R:20,L:40,a:0,fw:0},'dio'],['1φ fully controlled bridge','4 thyristors, variable DC via α',{ph:1,full:1,load:'RL',R:20,L:50,a:45,fw:0},'all'],['1φ semi-converter + FWD','2 thyristors, 2 diodes, freewheeling diode',{ph:1,full:1,load:'RL',R:15,L:60,a:60,fw:1},'semi'],['1φ half-wave SCR + FWD','Single thyristor with freewheeling diode',{ph:1,full:0,load:'RL',R:20,L:50,a:30,fw:1},'all'],['3φ 6-pulse diode bridge','Industry-standard 300 Hz output',{ph:3,full:1,load:'RL',R:25,L:30,a:0,fw:0},'dio'],['3φ fully controlled converter','6 thyristors, wide voltage range and regeneration',{ph:3,full:1,load:'RL',R:25,L:45,a:30,fw:0},'all'],['3φ semi-converter (3T + 3D)','Thyristors on top leg, diodes on bottom leg',{ph:3,full:1,load:'RL',R:20,L:40,a:45,fw:0},'semi'],['RLE drive (DC motor)','3φ bridge with back-EMF load',{ph:3,full:1,load:'RLE',R:5,L:100,E:200,a:30,fw:0},'all']];
+$('#pl').innerHTML=PR.map((p,i)=>`<button class="pc" data-p="${i}"><b>${p[0]}</b><br><span>${p[1]}</span></button>`).join('');
+document.addEventListener('click',e=>{const b=e.target.closest('[data-s],[data-a],[data-p]');if(!b)return;const d=b.dataset;
+if(d.s){const[k,v]=d.s.split(':');S[k]=isNaN(v)?v:+v;upd()}
+else if(d.p!=null){const p=PR[d.p];Object.assign(S,{E:100},p[2]);setTy(p[3]);$('#dp').close();upd()}
+else{const a=d.a;if(a=='run'){S.run=!S.run;b.textContent=S.run?'⏸ Pause':'▶ Run'}else if(a=='bk')S.th=(S.th+355)%360;else if(a=='nx')S.th=(S.th+5)%360;else if(a=='rs')S.th=0;else if(a=='pre')$('#dp').showModal();else if(a=='th')$('#dt').showModal();else if(a=='mode')rt.dataset.theme=rt.dataset.theme=='light'?'dark':'light';else{setTy(a);upd()}}});
+document.addEventListener('input',e=>{const t=e.target;if(t.dataset.k){S[t.dataset.k]=+t.value;upd()}});
+$('#thr').oninput=e=>{S.th=+e.target.value};
+$('#sv').addEventListener('pointerdown',e=>{const g=e.target.closest('[data-k]');if(g){const k=+g.dataset.k;S.ty[k]=S.ty[k]?0:1;upd()}});
+if(matchMedia('(prefers-color-scheme:light)').matches)rt.dataset.theme='light';
+upd();requestAnimationFrame(tick);
+</script></body></html>
